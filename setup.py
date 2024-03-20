@@ -11,7 +11,7 @@ here = path.abspath(path.dirname(__file__))
 with open(path.join(here, "README.md"), encoding="utf-8") as f:
     long_description = f.read()
 
-exec(open("xgeners/xgeners.py").read())
+exec(open("xgeners/version.py").read())
 setup(
     name="xgeners",
     version=__version__,
