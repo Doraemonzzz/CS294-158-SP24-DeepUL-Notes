@@ -168,4 +168,4 @@ tags
 # ruff
 .ruff_cache
 
-datas
+data
