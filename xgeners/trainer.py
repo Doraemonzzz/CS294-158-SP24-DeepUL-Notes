@@ -3,6 +3,8 @@
 """Utilities to train PyTorch models with less boilerplate."""
 
 
+from time import time
+
 import torch
 from accelerate import Accelerator
 from accelerate.logging import get_logger
@@ -31,12 +33,28 @@ class Trainer:
         log_dir=None,
         sample_epochs=3,
         save_checkpoint_epochs=1,
-        accelerate_kwargs: dict = dict(),
+        # accelerate args
+        log_intervals=100,
+        gradient_accumulation_steps=1,
+        with_tracking=False,
+        report_to="wandb",
+        output_dir=".",
         loss_fn_kwargs: dict = dict(),
     ):
         # init accelerator
-        self.accelerator = Accelerator(**accelerate_kwargs)
+        self.with_tracking
+        accelerator_log_kwargs = {}
+        if self.with_tracking:
+            accelerator_log_kwargs["log_with"] = args.report_to
+            accelerator_log_kwargs["project_dir"] = args.output_dir
+
+        self.accelerator = Accelerator(
+            gradient_accumulation_steps=gradient_accumulation_steps,
+            **accelerator_log_kwargs,
+        )
         self.logger = get_logger(__name__)
+        self.gradient_accumulation_steps = gradient_accumulation_steps
+        self.log_intervals = log_intervals
 
         # init model, dataloader, optimizer, scheduler
         (
@@ -80,6 +98,8 @@ class Trainer:
 
     def train(self):
         start_epoch = self.epoch
+        running_loss = 0
+        start_time = time()
 
         for epoch in range(start_epoch, self.max_epochs):
             if self.is_stop():
@@ -92,15 +112,49 @@ class Trainer:
                 with accelerator.accumulate(model):
                     outputs = model(**batch)
                     loss = self.loss_fn(**batch, **outputs, **self.loss_fn_kwargs)
-
+                    running_loss += loss.item()
                     self.accelerator.backward(loss)
                     self.optimizer.step()
                     self.lr_scheduler.step()
                     self.optimizer.zero_grad()
 
                 # Checks if the accelerator has performed an optimization step behind the scenes
-                if accelerator.sync_gradients:
+                if self.accelerator.sync_gradients:
                     self.step += 1
+
+                    if self.step % self.log_intervals == 0:
+                        # Measure training speed:
+                        torch.cuda.synchronize()
+                        end_time = time()
+                        steps_per_sec = self.log_intervals / (end_time - start_time)
+                        # running_loss_tensor = torch.tensor(running_loss / self.gradient_accumulation_steps / self.log_intervals)
+                        # dist.all_reduce(running_loss_tensor, op=dist.ReduceOp.SUM)
+                        # running_loss_avg = running_loss_tensor.item() / self.accelerator.num_processes
+
+                        running_loss_tensor = torch.tensor(
+                            running_loss
+                            / self.gradient_accumulation_steps
+                            / self.log_intervals
+                        )
+                        self.accelerator.gather_for_metrics(running_loss_tensor)
+                        running_loss_avg = torch.mean(running_loss_tensor).item()
+
+                        self.info(
+                            f"Epoch: {epoch}, Step: {step:07d}, Train Loss: {running_loss_avg:.4f}, Train Steps/Sec: {steps_per_sec:.2f}"
+                        )
+                        if self.with_tracking:
+                            self.accelerate.log(
+                                {
+                                    "train_loss": running_loss_avg,
+                                    "epoch": epoch,
+                                    "steps": self.step,
+                                },
+                                step=self.steps,
+                            )
+
+                        running_loss = 0
+
+                        start_time = time()
 
                 if self.is_stop():
                     break
@@ -112,10 +166,14 @@ class Trainer:
                 with torch.no_grad():
                     outputs = model(**batch)
                     loss = self.loss_fn(**batch, **outputs, **self.loss_fn_kwargs)
-                    losses.append(
-                        accelerator.gather_for_metrics(
-                            loss.repeat(args.per_device_eval_batch_size)
-                        )
-                    )
+                    losses.append(self.accelerator.gather_for_metrics(loss))
 
-            losses = torch.cat(losses)
+            losses = torch.cat(losses).mean().item()
+            if self.with_tracking:
+                self.info(f"Epoch: {epoch}, Eval Loss: {losses:.4f}")
+                self.accelerate.log(
+                    {
+                        "eval_loss": losses,
+                    },
+                    step=self.steps,
+                )
