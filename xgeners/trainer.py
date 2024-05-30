@@ -27,8 +27,8 @@ class Trainer:
         lr_scheduler,
         train_dataloader,
         eval_dataloader,
-        max_steps=None,
-        max_epochs=None,
+        max_steps=-1,
+        max_epochs=-1,
         log_intervals=100,
         gradient_accumulation_steps=1,
         with_tracking=False,
@@ -57,8 +57,8 @@ class Trainer:
         self.batch_size = batch_size
         self.max_steps = max_steps
         self.max_epochs = max_epochs
-        assert (self.max_steps is not None) or (
-            self.max_epochs is not None
+        assert (self.max_steps != -1) or (
+            self.max_epochs != -1
         ), "At least one of max_steps or max_epochs must be specified."
         self.num_update_steps_per_epoch = math.ceil(
             len(train_dataloader) / self.gradient_accumulation_steps
@@ -96,10 +96,10 @@ class Trainer:
         return self.logger.info(msg, main_process_only=True)
 
     def is_stop(self):
-        if self.max_epochs is None:
+        if self.max_epochs == -1:
             return self.step >= self.max_steps
         else:
-            if self.max_steps is None:
+            if self.max_steps == -1:
                 return self.epoch >= self.max_epochs
             else:
                 return self.epoch >= self.max_epochs or self.step >= self.max_steps
