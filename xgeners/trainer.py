@@ -3,6 +3,7 @@
 """Utilities to train PyTorch models with less boilerplate."""
 
 
+import os
 from time import time
 
 import torch
@@ -23,8 +24,8 @@ class Trainer:
         model,
         loss_fn,
         optimizer,
-        train_loader,
-        eval_loader,
+        train_dataloader,
+        eval_dataloader,
         lr_scheduler=None,
         max_steps=None,
         max_epochs=None,
@@ -39,6 +40,8 @@ class Trainer:
         with_tracking=False,
         report_to="wandb",
         output_dir=".",
+        checkpointing_steps=None,
+        resume_from_checkpoint=None,
         loss_fn_kwargs: dict = dict(),
     ):
         # init accelerator
@@ -56,22 +59,6 @@ class Trainer:
         self.gradient_accumulation_steps = gradient_accumulation_steps
         self.log_intervals = log_intervals
 
-        # init model, dataloader, optimizer, scheduler
-        (
-            self.model,
-            self.train_loader,
-            self.eval_loader,
-            self.optimizer,
-            self.lr_scheduler,
-        ) = self.accelerator.prepare(
-            model,
-            train_loader,
-            eval_loader,
-            optimizer,
-            lr_scheduler,
-        )
-        self.loss_fn = loss_fn
-
         # setup training params
         self.batch_size = batch_size
         self.max_steps = max_steps
@@ -79,10 +66,37 @@ class Trainer:
         assert (self.max_steps is not None) or (
             self.max_epochs is not None
         ), "At least one of max_steps or max_epochs must be specified."
+        self.num_update_steps_per_epoch = math.ceil(
+            len(train_dataloader) / self.gradient_accumulation_steps
+        )
+
+        # init model, dataloader, optimizer, scheduler
+        (
+            self.model,
+            self.train_dataloader,
+            self.eval_dataloader,
+            self.optimizer,
+            self.lr_scheduler,
+        ) = self.accelerator.prepare(
+            model,
+            train_dataloader,
+            eval_dataloader,
+            optimizer,
+            lr_scheduler,
+        )
+        self.loss_fn = loss_fn
+
+        # others
+        if checkpointing_steps is not None and checkpointing_steps.isdigit():
+            checkpointing_steps = int(checkpointing_steps)
+        self.checkpointing_steps = checkpointing_steps
+        self.output_dir = output_dir
+        self.resume_from_checkpoint = resume_from_checkpoint
 
         # keep track of train step
         self.step = 0
-        self.epoch = 0
+        self.start_epoch = 0
+        self.resume_step = None
 
     def info(self, msg):
         return self.logger.info(msg, main_process_only=True)
@@ -96,8 +110,47 @@ class Trainer:
             else:
                 return self.epoch >= self.max_epochs or self.step >= self.max_steps
 
+    def resume(self):
+        # Potentially load in the weights and states from a previous save
+        if self.resume_from_checkpoint:
+            if (
+                self.resume_from_checkpoint is not None
+                or self.resume_from_checkpoint != ""
+            ):
+                checkpoint_path = self.resume_from_checkpoint
+                path = os.path.basename(self.resume_from_checkpoint)
+            else:
+                # Get the most recent checkpoint
+                dirs = [f.name for f in os.scandir(self.output_dir) if f.is_dir()]
+                dirs.sort(key=os.path.getctime)
+                path = dirs[
+                    -1
+                ]  # Sorts folders by date modified, most recent checkpoint is the last
+                checkpoint_path = path
+                path = os.path.basename(checkpoint_path)
+
+            self.accelerator.print(f"Resumed from checkpoint: {checkpoint_path}")
+            self.accelerator.load_state(checkpoint_path)
+            # Extract `epoch_{i}` or `step_{i}`
+            training_difference = os.path.splitext(path)[0]
+
+            if "epoch" in training_difference:
+                self.start_epoch = int(training_difference.replace("epoch_", "")) + 1
+                self.resume_step = None
+                self.step = start_epoch * self.num_update_steps_per_epoch
+            else:
+                # need to multiply `gradient_accumulation_steps` to reflect real steps
+                resume_step = (
+                    int(training_difference.replace("step_", ""))
+                    * self.gradient_accumulation_steps
+                )
+                self.start_epoch = resume_step // len(self.train_dataloader)
+                self.step = resume_step // self.gradient_accumulation_steps
+                self.resume_step -= start_epoch * len(self.train_dataloader)
+
     def train(self):
-        start_epoch = self.epoch
+        self.resume()
+
         running_loss = 0
         start_time = time()
 
@@ -105,10 +158,22 @@ class Trainer:
             if self.is_stop():
                 break
 
+            if (
+                self.resume_from_checkpoint
+                and epoch == start_epoch
+                and self.resume_step is not None
+            ):
+                # We skip the first `n` batches in the dataloader when resuming from a checkpoint
+                train_dataloader = self.accelerator.skip_first_batches(
+                    train_dataloader, self.resume_step
+                )
+            else:
+                train_dataloader = self.train_dataloader
+
             self.model.train()
             self.info(f"Beginning epoch {epoch}, step {start_step}")
 
-            for step, batch in enumerate(self.train_loader):
+            for step, batch in enumerate(train_dataloader):
                 with accelerator.accumulate(model):
                     outputs = model(**batch)
                     loss = self.loss_fn(**batch, **outputs, **self.loss_fn_kwargs)
@@ -156,6 +221,13 @@ class Trainer:
 
                         start_time = time()
 
+                if isinstance(self.checkpointing_steps, int):
+                    if self.steps % self.checkpointing_steps == 0:
+                        output_dir = f"step_{completed_steps}"
+                        if self.output_dir is not None:
+                            output_dir = os.path.join(self.output_dir, output_dir)
+                        self.accelerator.save_state(output_dir)
+
                 if self.is_stop():
                     break
 
@@ -177,3 +249,10 @@ class Trainer:
                     },
                     step=self.steps,
                 )
+
+            # save
+            if self.checkpointing_steps == "epoch":
+                output_dir = f"epoch_{epoch}"
+                if self.output_dir is not None:
+                    output_dir = os.path.join(self.output_dir, output_dir)
+                self.accelerator.save_state(output_dir)
