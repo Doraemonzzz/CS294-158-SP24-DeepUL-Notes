@@ -7,7 +7,7 @@ from typing import Optional
 from simple_parsing import ArgumentParser
 
 from xgeners import Trainer
-from xgeners.utils import get_loss_fn, get_model
+from xgeners.utils import get_loss_fn, get_lr_scheduler, get_model, get_optimizer
 
 
 @dataclass
@@ -32,11 +32,11 @@ class LossArguments:
 @dataclass
 class OptimizerArguments:
     optimizer_name: str = "adamw"
-    learning_rate: float = field(
-        default=5e-5, metadata={"help": "The initial learning rate for AdamW."}
+    lr: float = field(
+        default=5e-5, metadata={"help": "The initial learning rate for Optimizer."}
     )
     weight_decay: float = field(
-        default=0.0, metadata={"help": "Weight decay for AdamW if we apply some."}
+        default=0.0, metadata={"help": "Weight decay for Optimizer if we apply some."}
     )
     adam_beta1: float = field(
         default=0.9, metadata={"help": "Beta1 for AdamW optimizer"}
@@ -120,8 +120,8 @@ def main():
     model = get_model(model_args)
     print(model)
     loss_fn, loss_fn_kwargs = get_loss_fn(loss_args)
-    optimizer = get_optimizer(opt_args)
-    lr_scheduler = get_lr_scheduler(lr_scheduler_args)
+    optimizer = get_optimizer(opt_args, model)
+    lr_scheduler = get_lr_scheduler(lr_scheduler_args, model)
     train_dataloader, eval_dataloader = get_dataloader(data_args)
 
     trainer = Trainer(
