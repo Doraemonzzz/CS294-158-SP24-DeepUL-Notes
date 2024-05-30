@@ -1,7 +1,6 @@
 # copy from https://github.com/EugenHotaj/pytorch-generative/blob/master/train.py
 """Main training script for models."""
 
-import argparse
 from dataclasses import dataclass, field
 
 from simple_parsing import ArgumentParser
@@ -111,7 +110,7 @@ def get_args():
     )
 
 
-def main(args):
+def main():
     (
         model_args,
         loss_args,
@@ -150,32 +149,4 @@ def main(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--model",
-        type=str,
-        help="the available models to train",
-        default="nade",
-        choices=list(MODEL_DICT.keys()),
-    )
-    parser.add_argument(
-        "--epochs", type=int, help="number of training epochs", default=1
-    )
-    parser.add_argument(
-        "--batch-size",
-        type=int,
-        help="the training and evaluation batch_size",
-        default=128,
-    )
-    parser.add_argument(
-        "--logdir",
-        type=str,
-        help="the directory where to log model parameters and TensorBoard metrics",
-        default="/tmp/run",
-    )
-    parser.add_argument(
-        "--gpus", type=int, help="number of GPUs to run the model on", default=0
-    )
-    args = parser.parse_args()
-
-    main(args)
+    main()
