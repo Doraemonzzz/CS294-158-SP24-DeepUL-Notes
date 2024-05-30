@@ -2,39 +2,36 @@
 """Main training script for models."""
 
 from dataclasses import dataclass, field
+from typing import Optional
 
 from simple_parsing import ArgumentParser
 
-import xgeners as xg
 from xgeners import Trainer
-
-MODEL_DICT = {
-    "made": xg.models.ar.made,
-}
+from xgeners.utils import get_model
 
 
 @dataclass
 class ModelArguments:
-    model_name: "vae"
-    patch_size: 16
-    embedding_dim: 128
-    output_dim: 128
-    num_encoder_layers: 12
-    num_decoder_layers: 12
+    model_name: str = "vae"
+    patch_size: int = 16
+    embedding_dim: int = 128
+    output_dim: int = 128
+    num_encoder_layers: int = 12
+    num_decoder_layers: int = 12
+    # for test only
+    in_channels: int = 3
+    latent_dim: int = 32
 
 
 @dataclass
 class LossArguments:
-    loss_fn_name: "vae"
-    loss_fn_kwargs: Optional[Union[dict, str]] = field(
-        default_factory=dict,
-        metadata={"help": ("Extra parameters for loss function")},
-    )
+    loss_fn_name: str = "vae"
+    kl_weight: float = 0.00025
 
 
 @dataclass
 class OptimizerArguments:
-    optimizer_name: "adamw"
+    optimizer_name: str = "adamw"
     learning_rate: float = field(
         default=5e-5, metadata={"help": "The initial learning rate for AdamW."}
     )
@@ -54,17 +51,31 @@ class OptimizerArguments:
 
 @dataclass
 class LrSchedulerArguments:
-    lr_scheduler_name: "cosine"
+    lr_scheduler_name: str = "cosine"
 
 
 @dataclass
 class DataArguments:
-    data_name: "mnist"
-    data_path: "."
+    data_name: str = "mnist"
+    data_path: str = "."
 
 
 @dataclass
 class TrainingArguments:
+    # batch size
+    train_batch_size: int = 1
+    eval_batch_size: int = 1
+    # steps / epochs
+    max_steps: int = -1
+    max_epochs: int = -1
+    # trainer params
+    log_intervals: int = 100
+    gradient_accumulation_steps: int = 1
+    with_tracking: bool = False
+    report_to: str = "wandb"
+    output_dir: str = "."
+    checkpointing_steps: Optional[str] = None
+    resume_from_checkpoint: Optional[str] = None
     # warmup
     warmup_ratio: float = field(
         default=0.0,
@@ -73,20 +84,6 @@ class TrainingArguments:
     warmup_steps: int = field(
         default=0, metadata={"help": "Linear warmup over warmup_steps."}
     )
-    # batch size
-    train_batch_size: 1
-    eval_batch_size: 1
-    # steps / epochs
-    max_steps: -1
-    max_epochs: -1
-    # trainer params
-    log_intervals: 100
-    gradient_accumulation_steps: 1
-    with_tracking: False
-    report_to: "wandb"
-    output_dir: "."
-    checkpointing_steps: None
-    resume_from_checkpoint: None
 
 
 def get_args():
@@ -121,6 +118,7 @@ def main():
     ) = get_args()
 
     model = get_model(model_args)
+    print(model)
     loss_fn, loss_fn_kwargs = get_loss_fn(loss_args)
     optimizer = get_optimizer(opt_args)
     lr_scheduler = get_lr_scheduler(lr_scheduler_args)
@@ -133,7 +131,6 @@ def main():
         lr_scheduler=lr_scheduler,
         train_dataloader=train_dataloader,
         eval_dataloader=eval_dataloader,
-        max_steps=train_args.max_steps,
         max_steps=train_args.max_steps,
         max_epochs=train_args.max_epochs,
         log_intervals=train_args.log_intervals,
