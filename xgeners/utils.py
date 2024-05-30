@@ -1,5 +1,6 @@
 import logging
 
+import torch
 import torch.optim as optim
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
@@ -76,6 +77,17 @@ def get_optimizer(opt_args, model):
 
 def get_lr_scheduler(lr_scheduler_args, model):
     return create_scheduler(lr_scheduler_args, model)
+
+
+def get_collate_fn(data_args):
+    data_name = data_args.data_name
+    if data_name == "mnist":
+
+        def collate_fn(batch):
+            input, label = zip(*batch)
+            return {"input": torch.stack(input), "label": torch.tensor(label)}
+
+        return collate_fn
 
 
 def get_dataset(data_args):
@@ -179,11 +191,13 @@ def get_dataset(data_args):
 
 def get_dataloader(data_args):
     data_train, data_eval = get_dataset(data_args)
+    collate_fn = get_collate_fn(data_args)
 
     train_dataloader = DataLoader(
         data_train,
         batch_size=data_args.train_batch_size,
         shuffle=False,
+        collate_fn=collate_fn,
         num_workers=data_args.num_workers,
         pin_memory=True,
         drop_last=True,
@@ -192,6 +206,7 @@ def get_dataloader(data_args):
         data_eval,
         batch_size=data_args.eval_batch_size,
         shuffle=False,
+        collate_fn=collate_fn,
         num_workers=data_args.num_workers,
         pin_memory=True,
     )

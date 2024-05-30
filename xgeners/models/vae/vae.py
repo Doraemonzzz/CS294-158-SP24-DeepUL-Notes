@@ -38,13 +38,13 @@ class VanillaVAE(nn.Module):
             in_channels = h_dim
 
         self.encoder = nn.Sequential(*modules)
-        self.fc_mu = nn.Linear(hidden_dims[-1] * 4, latent_dim)
-        self.fc_var = nn.Linear(hidden_dims[-1] * 4, latent_dim)
+        self.fc_mu = nn.Linear(hidden_dims[-1], latent_dim)
+        self.fc_var = nn.Linear(hidden_dims[-1], latent_dim)
 
         # Build Decoder
         modules = []
 
-        self.decoder_input = nn.Linear(latent_dim, hidden_dims[-1] * 4)
+        self.decoder_input = nn.Linear(latent_dim, hidden_dims[-1])
 
         hidden_dims.reverse()
 
@@ -77,7 +77,9 @@ class VanillaVAE(nn.Module):
             ),
             nn.BatchNorm2d(hidden_dims[-1]),
             nn.LeakyReLU(),
-            nn.Conv2d(hidden_dims[-1], out_channels=3, kernel_size=3, padding=1),
+            nn.Conv2d(
+                hidden_dims[-1], out_channels=in_channels, kernel_size=3, padding=1
+            ),
             nn.Tanh(),
         )
 
@@ -90,7 +92,7 @@ class VanillaVAE(nn.Module):
         """
         result = self.encoder(input)
         result = torch.flatten(result, start_dim=1)
-
+        print(result.shape)
         # Split the result into mu and var components
         # of the latent Gaussian distribution
         mu = self.fc_mu(result)
@@ -106,8 +108,11 @@ class VanillaVAE(nn.Module):
         :return: (Tensor) [B x C x H x W]
         """
         result = self.decoder_input(z)
-        result = result.view(-1, 512, 2, 2)
+        print(z.shape, result.shape)
+        result = result.view(z.shape[0], 512, 1, 1)
         result = self.decoder(result)
+        print(result.shape)
+
         result = self.final_layer(result)
         return result
 
@@ -124,11 +129,12 @@ class VanillaVAE(nn.Module):
         return eps * std + mu
 
     def forward(self, input: Tensor, **kwargs) -> List[Tensor]:
+        print(input.shape)
         mu, log_var = self.encode(input)
         z = self.reparameterize(mu, log_var)
         output = self.decode(z)
 
-        output_dict = {"output": output, "input": input, "mu": mu, "log_var": log_var}
+        output_dict = {"output": output, "mu": mu, "log_var": log_var}
         return output_dict
 
     def loss_function(self, *args, **kwargs) -> dict:

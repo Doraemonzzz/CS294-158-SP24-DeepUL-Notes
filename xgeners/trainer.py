@@ -3,6 +3,7 @@
 """Utilities to train PyTorch models with less boilerplate."""
 
 
+import math
 import os
 from time import time
 
@@ -62,6 +63,10 @@ class Trainer:
         self.num_update_steps_per_epoch = math.ceil(
             len(train_dataloader) / self.gradient_accumulation_steps
         )
+        if self.max_steps == -1:
+            self.max_steps = self.max_epochs * self.num_update_steps_per_epoch
+        if self.max_epochs == -1:
+            self.max_epochs = self.max_steps // self.num_update_steps_per_epoch
 
         # init model, dataloader, optimizer, scheduler
         (
@@ -90,18 +95,13 @@ class Trainer:
         self.checkpointing_steps = checkpointing_steps
         self.output_dir = output_dir
         self.resume_from_checkpoint = resume_from_checkpoint
+        self.loss_fn_kwargs = loss_fn_kwargs
 
     def info(self, msg):
         return self.logger.info(msg, main_process_only=True)
 
     def is_stop(self):
-        if self.max_epochs == -1:
-            return self.step >= self.max_steps
-        else:
-            if self.max_steps == -1:
-                return self.epoch >= self.max_epochs
-            else:
-                return self.epoch >= self.max_epochs or self.step >= self.max_steps
+        return self.step >= self.max_steps
 
     def resume(self):
         # Potentially load in the weights and states from a previous save
@@ -147,7 +147,7 @@ class Trainer:
         running_loss = 0
         start_time = time()
 
-        for epoch in range(start_epoch, self.max_epochs):
+        for epoch in range(self.start_epoch, self.max_epochs):
             if self.is_stop():
                 break
 
@@ -164,11 +164,11 @@ class Trainer:
                 train_dataloader = self.train_dataloader
 
             self.model.train()
-            self.info(f"Beginning epoch {epoch}, step {start_step}")
+            self.info(f"Beginning epoch {epoch}, step {self.step}")
 
             for step, batch in enumerate(train_dataloader):
-                with accelerator.accumulate(model):
-                    outputs = model(**batch)
+                with self.accelerator.accumulate(self.model):
+                    outputs = self.model(**batch)
                     loss = self.loss_fn(**batch, **outputs, **self.loss_fn_kwargs)
                     running_loss += loss.item()
                     self.accelerator.backward(loss)
