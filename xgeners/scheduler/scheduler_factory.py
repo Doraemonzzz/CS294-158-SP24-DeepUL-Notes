@@ -23,7 +23,7 @@ def scheduler_kwargs(cfg, decreasing_metric: Optional[bool] = None):
     else:
         plateau_mode = "min" if "loss" in eval_metric else "max"
     kwargs = dict(
-        sched=cfg.sched,
+        sched=cfg.lr_scheduler_name,
         num_epochs=getattr(cfg, "epochs", 100),
         decay_epochs=getattr(cfg, "decay_epochs", 30),
         decay_milestones=getattr(cfg, "decay_milestones", [30, 60]),

@@ -20,3 +20,4 @@
 
 - scheduler is copy from `timm`
 - trainer is adapt from [here](https://github.com/huggingface/transformers/blob/main/examples/pytorch/language-modeling/run_mlm_no_trainer.py).
+- dataset code is copy from [maskgit](https://github.com/valeoai/Maskgit-pytorch)

@@ -1,6 +1,12 @@
 import logging
 
 import torch.optim as optim
+import torchvision.transforms as transforms
+from torch.utils.data import DataLoader
+from torchvision.datasets import ImageFolder
+from torchvision.datasets.cifar import CIFAR10
+from torchvision.datasets.mnist import MNIST
+from torchvision.datasets.stl10 import STL10
 
 from .loss import vae_loss
 from .models import VanillaVAE
@@ -70,3 +76,124 @@ def get_optimizer(opt_args, model):
 
 def get_lr_scheduler(lr_scheduler_args, model):
     return create_scheduler(lr_scheduler_args, model)
+
+
+def get_dataset(data_args):
+    data_name = data_args.data_name
+    download = data_args.download
+    data_path = data_args.data_path
+    if data_name == "mnist":
+        # ref: https://github.com/pytorch/examples/blob/main/mnist/main.py
+        transform = transforms.Compose(
+            [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
+        )
+        data_train = MNIST(
+            data_path, train=True, download=download, transform=transform
+        )
+        data_eval = MNIST(
+            data_path, train=False, download=download, transform=transform
+        )
+    elif data_name == "cifar10":
+        data_train = CIFAR10(
+            data_path,
+            train=True,
+            download=download,
+            transform=transforms.Compose(
+                [
+                    transforms.Resize(data_args.img_size),
+                    transforms.RandomHorizontalFlip(),
+                    transforms.ToTensor(),
+                    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+                ]
+            ),
+        )
+        data_eval = CIFAR10(
+            data_path,
+            train=False,
+            download=download,
+            transform=transforms.Compose(
+                [
+                    transforms.Resize(data_args.img_size),
+                    transforms.ToTensor(),
+                    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+                ]
+            ),
+        )
+
+    elif data_name == "stl10":
+        data_train = STL10(
+            data_path,
+            split="train+unlabeled",
+            transform=transforms.Compose(
+                [
+                    transforms.Resize(data_args.img_size),
+                    transforms.RandomHorizontalFlip(),
+                    transforms.ToTensor(),
+                    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+                ]
+            ),
+        )
+        data_eval = STL10(
+            data_path,
+            split="test",
+            transform=transforms.Compose(
+                [
+                    transforms.Resize(data_args.img_size),
+                    transforms.ToTensor(),
+                    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+                ]
+            ),
+        )
+
+    elif data_name == "imagenet":
+        # '/Dataset/ImageNet/train'
+        t_train = transforms.Compose(
+            [
+                transforms.Resize(data_args.img_size),
+                transforms.RandomCrop((data_args.img_size, data_args.img_size)),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+            ]
+        )
+        t_eval = transforms.Compose(
+            [
+                transforms.Resize(data_args.img_size),
+                transforms.CenterCrop((data_args.img_size, data_args.img_size)),
+                transforms.ToTensor(),
+                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+            ]
+        )
+
+        try:
+            data_train = ImageFolder(
+                os.path.join(data_path, "train"), transform=t_train
+            )
+            data_eval = ImageFolder(os.path.join(data_path, "val"), transform=t_test)
+        except:
+            data_train = ImageNetKaggle(data_path, "train", transform=t_train)
+            data_eval = ImageNetKaggle(data_path, "val", transform=t_test)
+
+    return data_train, data_eval
+
+
+def get_dataloader(data_args):
+    data_train, data_eval = get_dataset(data_args)
+
+    train_dataloader = DataLoader(
+        data_train,
+        batch_size=data_args.train_batch_size,
+        shuffle=False,
+        num_workers=data_args.num_workers,
+        pin_memory=True,
+        drop_last=True,
+    )
+    eval_dataloader = DataLoader(
+        data_eval,
+        batch_size=data_args.eval_batch_size,
+        shuffle=False,
+        num_workers=data_args.num_workers,
+        pin_memory=True,
+    )
+
+    return train_dataloader, eval_dataloader

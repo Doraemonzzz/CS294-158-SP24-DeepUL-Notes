@@ -7,7 +7,13 @@ from typing import Optional
 from simple_parsing import ArgumentParser
 
 from xgeners import Trainer
-from xgeners.utils import get_loss_fn, get_lr_scheduler, get_model, get_optimizer
+from xgeners.utils import (
+    get_dataloader,
+    get_loss_fn,
+    get_lr_scheduler,
+    get_model,
+    get_optimizer,
+)
 
 
 @dataclass
@@ -58,13 +64,14 @@ class LrSchedulerArguments:
 class DataArguments:
     data_name: str = "mnist"
     data_path: str = "."
+    num_workers: int = 8
+    download: bool = False
+    train_batch_size: int = 1
+    eval_batch_size: int = 1
 
 
 @dataclass
 class TrainingArguments:
-    # batch size
-    train_batch_size: int = 1
-    eval_batch_size: int = 1
     # steps / epochs
     max_steps: int = -1
     max_epochs: int = -1
@@ -121,7 +128,7 @@ def main():
     print(model)
     loss_fn, loss_fn_kwargs = get_loss_fn(loss_args)
     optimizer = get_optimizer(opt_args, model)
-    lr_scheduler = get_lr_scheduler(lr_scheduler_args, model)
+    lr_scheduler = get_lr_scheduler(lr_scheduler_args, optimizer)
     train_dataloader, eval_dataloader = get_dataloader(data_args)
 
     trainer = Trainer(

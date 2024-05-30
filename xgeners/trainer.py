@@ -54,7 +54,6 @@ class Trainer:
         self.log_intervals = log_intervals
 
         # setup training params
-        self.batch_size = batch_size
         self.max_steps = max_steps
         self.max_epochs = max_epochs
         assert (self.max_steps != -1) or (
