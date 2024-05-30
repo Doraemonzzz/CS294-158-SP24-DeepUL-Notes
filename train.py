@@ -2,35 +2,34 @@
 """Main training script for models."""
 
 import argparse
-import os
-
-import torch
 
 import xgeners as xg
+from xgeners import Trainer
 
 MODEL_DICT = {
     "made": xg.models.ar.made,
 }
 
 
-def _worker(local_rank, *args):
-    os.environ["MASTER_ADDR"] = "localhost"
-    os.environ["MASTER_PORT"] = "12345"
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(local_rank)
-    torch.distributed.init_process_group(
-        backend="nccl",
-        world_size=args[-1],
-        rank=local_rank,
-    )
-    model, model_args = args[0], args[1:]
-    MODEL_DICT[model].reproduce(*args, device_id=local_rank)
-
-
 def main(args):
-    if args.gpus > 1:
-        worker_args = args.model, args.epochs, args.batch_size, args.logdir, args.gpus
-        torch.multiprocessing.spawn(_worker, worker_args, nprocs=args.gpus)
-    MODEL_DICT[args.model].reproduce(args.epochs, args.batch_size, args.logdir)
+    args = get_args()
+
+    model = get_model(args)
+    loss_fn = get_loss_fn(args)
+    optimizer = get_optimizer(args)
+    lr_scheduler = get_lr_scheduler(args)
+    train_dataloader, eval_dataloader = get_dataloader(args)
+
+    trainer = Trainer(
+        model=model,
+        loss_fn=loss_fn,
+        optimizer=optimizer,
+        lr_scheduler=lr_scheduler,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
+    )
+
+    trainer.train()
 
 
 if __name__ == "__main__":
