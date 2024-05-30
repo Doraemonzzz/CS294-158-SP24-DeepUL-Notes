@@ -29,12 +29,6 @@ class Trainer:
         lr_scheduler=None,
         max_steps=None,
         max_epochs=None,
-        clip_grad_norm=None,
-        skip_grad_norm=None,
-        log_dir=None,
-        sample_epochs=3,
-        save_checkpoint_epochs=1,
-        # accelerate args
         log_intervals=100,
         gradient_accumulation_steps=1,
         with_tracking=False,
@@ -45,7 +39,7 @@ class Trainer:
         loss_fn_kwargs: dict = dict(),
     ):
         # init accelerator
-        self.with_tracking
+        self.with_tracking = with_tracking
         accelerator_log_kwargs = {}
         if self.with_tracking:
             accelerator_log_kwargs["log_with"] = args.report_to
@@ -86,17 +80,17 @@ class Trainer:
         )
         self.loss_fn = loss_fn
 
+        # keep track of train step
+        self.step = 0
+        self.start_epoch = 0
+        self.resume_step = None
+
         # others
         if checkpointing_steps is not None and checkpointing_steps.isdigit():
             checkpointing_steps = int(checkpointing_steps)
         self.checkpointing_steps = checkpointing_steps
         self.output_dir = output_dir
         self.resume_from_checkpoint = resume_from_checkpoint
-
-        # keep track of train step
-        self.step = 0
-        self.start_epoch = 0
-        self.resume_step = None
 
     def info(self, msg):
         return self.logger.info(msg, main_process_only=True)
@@ -256,3 +250,6 @@ class Trainer:
                 if self.output_dir is not None:
                     output_dir = os.path.join(self.output_dir, output_dir)
                 self.accelerator.save_state(output_dir)
+
+        if self.with_tracking:
+            self.accelerator.end_training()
