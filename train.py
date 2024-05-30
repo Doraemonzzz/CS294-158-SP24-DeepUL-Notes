@@ -7,7 +7,7 @@ from typing import Optional
 from simple_parsing import ArgumentParser
 
 from xgeners import Trainer
-from xgeners.utils import get_model
+from xgeners.utils import get_loss_fn, get_model
 
 
 @dataclass
