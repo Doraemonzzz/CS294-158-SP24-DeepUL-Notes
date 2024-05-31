@@ -1,120 +1,98 @@
-# copy from https://github.com/AntixK/PyTorch-VAE
-from typing import List, TypeVar
-
 import torch
 from torch import nn
 from torch.nn import functional as F
 
-Tensor = TypeVar("torch.tensor")
+from xgeners.modules import Blocks, PatchEmbed, ReversePatchEmbed
 
 
 class VanillaVAE(nn.Module):
     def __init__(self, **kwargs) -> None:
         super().__init__()
-        in_channels = kwargs["in_channels"]
+        kwargs["in_channels"]
         latent_dim = kwargs["latent_dim"]
-        hidden_dims = kwargs.get("hidden_dims", None)
-        self.latent_dim = latent_dim
+        kwargs.get("hidden_dims", None)
 
-        modules = []
-        if hidden_dims is None:
-            hidden_dims = [32, 64, 128, 256, 512]
-
-        # Build Encoder
-        for h_dim in hidden_dims:
-            modules.append(
-                nn.Sequential(
-                    nn.Conv2d(
-                        in_channels,
-                        out_channels=h_dim,
-                        kernel_size=3,
-                        stride=2,
-                        padding=1,
-                    ),
-                    nn.BatchNorm2d(h_dim),
-                    nn.LeakyReLU(),
-                )
-            )
-            in_channels = h_dim
-
-        self.encoder = nn.Sequential(*modules)
-        self.fc_mu = nn.Linear(hidden_dims[-1], latent_dim)
-        self.fc_var = nn.Linear(hidden_dims[-1], latent_dim)
-
-        # Build Decoder
-        modules = []
-
-        self.decoder_input = nn.Linear(latent_dim, hidden_dims[-1])
-
-        hidden_dims.reverse()
-
-        for i in range(len(hidden_dims) - 1):
-            modules.append(
-                nn.Sequential(
-                    nn.ConvTranspose2d(
-                        hidden_dims[i],
-                        hidden_dims[i + 1],
-                        kernel_size=3,
-                        stride=2,
-                        padding=1,
-                        output_padding=1,
-                    ),
-                    nn.BatchNorm2d(hidden_dims[i + 1]),
-                    nn.LeakyReLU(),
-                )
-            )
-
-        self.decoder = nn.Sequential(*modules)
-
-        self.final_layer = nn.Sequential(
-            nn.ConvTranspose2d(
-                hidden_dims[-1],
-                hidden_dims[-1],
-                kernel_size=3,
-                stride=2,
-                padding=1,
-                output_padding=1,
-            ),
-            nn.BatchNorm2d(hidden_dims[-1]),
-            nn.LeakyReLU(),
-            nn.Conv2d(
-                hidden_dims[-1], out_channels=in_channels, kernel_size=3, padding=1
-            ),
-            nn.Tanh(),
+        # Encoder part
+        self.patch_embed = PatchEmbed(
+            image_size=image_size,
+            patch_size=patch_size,
+            channels=channels,
+            flatten=flatten,
+            bias=bias,
         )
+        self.encoder = Blocks(
+            num_layers=num_encoder_layers,
+            embed_dim=embed_dim,
+            num_heads=num_heads,
+            mid_dim=mid_dim,
+            token_mixer=token_mixer,
+            channel_mixer=channel_mixer,
+            drop_path=drop_path,
+            norm_type=norm_type,
+            act_fun=act_fun,
+            use_lightnet=use_lightnet,
+            bias=bias,
+            use_lrpe=use_lrpe,
+        )
+        self.mu_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
+        self.log_var_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
+        self.pos_embed = None
+        self.mu_proj = nn.Linear(embed_dim, latent_dim, bias=bias)
+        self.log_var_proj = nn.Linear(embed_dim, latent_dim, bias=bias)
 
-    def encode(self, input: Tensor) -> List[Tensor]:
-        """
-        Encodes the input by passing through the encoder network
-        and returns the latent codes.
-        :param input: (Tensor) Input tensor to encoder [N x C x H x W]
-        :return: (Tensor) List of latent codes
-        """
-        result = self.encoder(input)
-        result = torch.flatten(result, start_dim=1)
-        print(result.shape)
-        # Split the result into mu and var components
-        # of the latent Gaussian distribution
-        mu = self.fc_mu(result)
-        log_var = self.fc_var(result)
+        # Decoder part
+        self.decoder_proj = nn.Linear(latent_dim, embed_dim, bias=bias)
+        self.decoder = Blocks(
+            num_layers=num_decoder_layers,
+            embed_dim=embed_dim,
+            num_heads=num_heads,
+            mid_dim=mid_dim,
+            token_mixer=token_mixer,
+            channel_mixer=channel_mixer,
+            drop_path=drop_path,
+            norm_type=norm_type,
+            act_fun=act_fun,
+            use_lightnet=use_lightnet,
+            bias=bias,
+            use_lrpe=use_lrpe,
+        )
+        self.reverse_patch_embed = ReversePatchEmbed(
+            image_size=image_size,
+            patch_size=patch_size,
+            channels=channels,
+            flatten=flatten,
+            bias=bias,
+        )
+        # ref https://github.com/chinmay5/vit_ae_plus_plus/blob/main/model/vit_autoenc.py
+        self.dummy_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
+
+    def encode(self, x: Tensor) -> List[Tensor]:
+        x = self.to_patch_embedding(x)
+        b = x.shape[0]
+        mu_token = self.mu_token.expand(b, -1, -1)
+        log_var_token = self.log_var_token.expand(b, -1, -1)
+        x = torch.cat([mu_token, log_var_token, x], dim=-2)
+        x = self.encoder(x)
+        mu_token = x[:, 0]
+        log_var_token = x[:, 1]
+        mu = self.mu_proj(mu_token)
+        log_var = self.log_var_token(log_var_token)
 
         return [mu, log_var]
 
-    def decode(self, z: Tensor) -> Tensor:
+    def decode(self, x, n) -> Tensor:
         """
         Maps the given latent codes
         onto the image space.
         :param z: (Tensor) [B x D]
         :return: (Tensor) [B x C x H x W]
         """
-        result = self.decoder_input(z)
-        print(z.shape, result.shape)
-        result = result.view(z.shape[0], 512, 1, 1)
-        result = self.decoder(result)
-        print(result.shape)
-
-        result = self.final_layer(result)
-        return result
+        x = self.decoder_proj(x)
+        dummy_tokens = self.mask_token.repeat(x.shape[0], n, 1)
+        x = torch.cat([x, dummy_tokens], dim=-2)
+        y = self.decoder(x)
+        y = self.reverse_patch_embed(y)
+        return y[:, 1:]
 
     def reparameterize(self, mu: Tensor, logvar: Tensor) -> Tensor:
         """
@@ -129,7 +107,6 @@ class VanillaVAE(nn.Module):
         return eps * std + mu
 
     def forward(self, input: Tensor, **kwargs) -> List[Tensor]:
-        print(input.shape)
         mu, log_var = self.encode(input)
         z = self.reparameterize(mu, log_var)
         output = self.decode(z)
