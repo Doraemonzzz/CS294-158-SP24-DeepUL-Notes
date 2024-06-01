@@ -6,16 +6,40 @@ from xgeners.modules import Blocks, PatchEmbed, ReversePatchEmbed
 
 
 class VanillaVAE(nn.Module):
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, config) -> None:
         super().__init__()
-        kwargs["in_channels"]
-        latent_dim = kwargs["latent_dim"]
-        kwargs.get("hidden_dims", None)
+        ##### get params start
+        # patch embedding
+        image_size = config.image_size
+        patch_size = config.patch_size
+        channels = config.channels
+        flatten = config.flatten
+        # model params
+        latent_dim = config.latent_dim
+        embed_dim = config.embed_dim
+        num_heads = config.num_heads
+        bias = config.bias
+        mid_dim = config.mid_dim  # glu/ffn mid dim
+        token_mixer = config.token_mixer  # "softmax" or "linear"
+        channel_mixer = config.channel_mixer  # "glu" or "ffn"
+        drop_path = config.drop_path  # drop path rate
+        norm_type = config.norm_type
+        act_fun = config.act_fun
+        use_lightnet = config.use_lightnet
+        use_lrpe = config.use_lrpe
+
+        # encoder
+        num_encoder_layers = config.num_encoder_layers
+
+        # decoder
+        num_decoder_layers = config.num_decoder_layers
+        ##### get params end
 
         # Encoder part
         self.patch_embed = PatchEmbed(
             image_size=image_size,
             patch_size=patch_size,
+            embed_dim=embed_dim,
             channels=channels,
             flatten=flatten,
             bias=bias,
@@ -59,28 +83,30 @@ class VanillaVAE(nn.Module):
         self.reverse_patch_embed = ReversePatchEmbed(
             image_size=image_size,
             patch_size=patch_size,
+            embed_dim=embed_dim,
             channels=channels,
             flatten=flatten,
             bias=bias,
         )
-        # ref https://github.com/chinmay5/vit_ae_plus_plus/blob/main/model/vit_autoenc.py
-        self.dummy_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
+        self.decoder_token = nn.Parameter(
+            torch.zeros(1, self.patch_embed.num_tokens, embed_dim)
+        )
 
-    def encode(self, x: Tensor) -> List[Tensor]:
-        x = self.to_patch_embedding(x)
+    def encode(self, x):
+        x = self.patch_embed(x)
         b = x.shape[0]
         mu_token = self.mu_token.expand(b, -1, -1)
         log_var_token = self.log_var_token.expand(b, -1, -1)
         x = torch.cat([mu_token, log_var_token, x], dim=-2)
         x = self.encoder(x)
-        mu_token = x[:, 0]
-        log_var_token = x[:, 1]
+        mu_token = x[:, :1]
+        log_var_token = x[:, 1:2]
         mu = self.mu_proj(mu_token)
-        log_var = self.log_var_token(log_var_token)
-
+        log_var = self.log_var_proj(log_var_token)
+        print(mu.shape, log_var.shape)
         return [mu, log_var]
 
-    def decode(self, x, n) -> Tensor:
+    def decode(self, x):
         """
         Maps the given latent codes
         onto the image space.
@@ -88,13 +114,13 @@ class VanillaVAE(nn.Module):
         :return: (Tensor) [B x C x H x W]
         """
         x = self.decoder_proj(x)
-        dummy_tokens = self.mask_token.repeat(x.shape[0], n, 1)
-        x = torch.cat([x, dummy_tokens], dim=-2)
+        decoder_token = self.decoder_token.repeat(x.shape[0], 1, 1)
+        x = torch.cat([x, decoder_token], dim=-2)
         y = self.decoder(x)
-        y = self.reverse_patch_embed(y)
-        return y[:, 1:]
+        y = self.reverse_patch_embed(y[:, 1:])
+        return y
 
-    def reparameterize(self, mu: Tensor, logvar: Tensor) -> Tensor:
+    def reparameterize(self, mu, logvar):
         """
         Reparameterization trick to sample from N(mu, var) from
         N(0,1).
@@ -106,11 +132,11 @@ class VanillaVAE(nn.Module):
         eps = torch.randn_like(std)
         return eps * std + mu
 
-    def forward(self, input: Tensor, **kwargs) -> List[Tensor]:
+    def forward(self, input, **kwargs):
         mu, log_var = self.encode(input)
         z = self.reparameterize(mu, log_var)
         output = self.decode(z)
-
+        print(output.shape)
         output_dict = {"output": output, "mu": mu, "log_var": log_var}
         return output_dict
 
@@ -141,7 +167,7 @@ class VanillaVAE(nn.Module):
             "KLD": -kld_loss.detach(),
         }
 
-    def sample(self, num_samples: int, current_device: int, **kwargs) -> Tensor:
+    def sample(self, num_samples: int, current_device: int, **kwargs):
         """
         Samples from the latent space and return the corresponding
         image space map.
@@ -156,7 +182,7 @@ class VanillaVAE(nn.Module):
         samples = self.decode(z)
         return samples
 
-    def generate(self, x: Tensor, **kwargs) -> Tensor:
+    def generate(self, x, **kwargs):
         """
         Given an input image x, returns the reconstructed image
         :param x: (Tensor) [B x C x H x W]

@@ -23,7 +23,8 @@ OPTIM_DICT = {"adamw": optim.AdamW, "adam": optim.Adam}
 
 
 def get_model(model_args):
-    return MODEL_DICT[model_args.model_name](**vars(model_args))
+    # return MODEL_DICT[model_args.model_name](**vars(model_args))
+    return MODEL_DICT[model_args.model_name](model_args)
 
 
 def get_loss_fn(loss_args):

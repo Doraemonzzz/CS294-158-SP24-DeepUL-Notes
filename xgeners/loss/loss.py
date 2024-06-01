@@ -1,8 +1,8 @@
+import torch
 from torch.nn import functional as F
 
 
 def vae_loss(input, output, mu, log_var, **kwargs):
-    print(output.shape, input.shape)
     recons_loss = F.mse_loss(output, input)
     kl_loss = torch.mean(
         -0.5 * torch.sum(1 + log_var - mu**2 - log_var.exp(), dim=-1), dim=0

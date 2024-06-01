@@ -19,14 +19,29 @@ from xgeners.utils import (
 @dataclass
 class ModelArguments:
     model_name: str = "vae"
-    patch_size: int = 16
-    embedding_dim: int = 128
-    output_dim: int = 128
+    # patch embedding
+    image_size: int = 224
+    patch_size: int = 14
+    channels: int = 3
+    flatten: bool = True
+    # model params
+    latent_dim: int = 192
+    embed_dim: int = 192
+    num_heads: int = 3
+    bias: bool = False
+    mid_dim: int = 256
+    token_mixer: str = "softmax"
+    channel_mixer: str = "glu"
+    drop_path: float = 0
+    norm_type: str = "layernorm"
+    act_fun: str = "swish"
+    use_lightnet: bool = False
+    use_lrpe: bool = False
+
+    # encoder
     num_encoder_layers: int = 12
+    # decoder
     num_decoder_layers: int = 12
-    # for test only
-    in_channels: int = 3
-    latent_dim: int = 32
 
 
 @dataclass
@@ -147,6 +162,7 @@ def main():
         output_dir=train_args.output_dir,
         checkpointing_steps=train_args.checkpointing_steps,
         resume_from_checkpoint=train_args.resume_from_checkpoint,
+        loss_fn_kwargs=loss_fn_kwargs,
     )
 
     trainer.train()

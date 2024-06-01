@@ -15,6 +15,7 @@
 - https://github.com/lucidrains/magvit2-pytorch/blob/main/magvit2_pytorch/trainer.py
 - https://github.com/huggingface/transformers/blob/main/src/transformers/training_args.py
 - https://github.com/huggingface/pytorch-image-models
+- https://github.com/thuanz123/enhancing-transformers
 
 # Ack
 

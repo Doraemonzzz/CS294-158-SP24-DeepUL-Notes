@@ -1,3 +1,5 @@
+import torch.nn as nn
+
 from .channel_mixer import get_channel_mixer
 from .drop import DropPath
 from .token_mixer import get_token_mixer
@@ -37,12 +39,12 @@ class Block(nn.Module):
             act_fun=act_fun,
             bias=bias,
         )
-        self.token_norm = get_norm_fn(norm_type)(dim)
-        self.feature_norm = get_norm_fn(norm_type)(dim)
+        self.token_norm = get_norm_fn(norm_type)(embed_dim)
+        self.channel_norm = get_norm_fn(norm_type)(embed_dim)
 
     def forward(self, x):
         x = x + self.drop_path(self.token_mixer(self.token_norm(x)))
-        x = x + self.drop_path(self.feature_mixer(self.feature_norm(x)))
+        x = x + self.drop_path(self.channel_mixer(self.channel_norm(x)))
 
         return x
 
@@ -67,7 +69,7 @@ class Blocks(nn.Module):
         super().__init__()
         self.blocks = nn.ModuleList([])
         for _ in range(num_layers):
-            self.layers.append(
+            self.blocks.append(
                 Block(
                     embed_dim=embed_dim,
                     num_heads=num_heads,
@@ -85,4 +87,7 @@ class Blocks(nn.Module):
             )
 
     def forward(self, x):
-        return self.blocks(x)
+        for block in self.blocks:
+            x = block(x)
+
+        return x
