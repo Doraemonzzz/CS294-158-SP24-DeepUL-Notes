@@ -28,8 +28,8 @@ class Trainer:
         lr_scheduler,
         train_dataloader,
         eval_dataloader,
-        max_steps=-1,
-        max_epochs=-1,
+        num_train_steps=-1,
+        num_train_epochs=-1,
         log_intervals=100,
         gradient_accumulation_steps=1,
         with_tracking=False,
@@ -55,18 +55,18 @@ class Trainer:
         self.log_intervals = log_intervals
 
         # setup training params
-        self.max_steps = max_steps
-        self.max_epochs = max_epochs
-        assert (self.max_steps != -1) or (
-            self.max_epochs != -1
-        ), "At least one of max_steps or max_epochs must be specified."
+        self.num_train_steps = num_train_steps
+        self.num_train_epochs = num_train_epochs
+        assert (self.num_train_steps != -1) and (
+            self.num_train_epochs != -1
+        ), "num_train_steps and num_train_epochs must be specified, please check function preprocess_max_epochs_and_steps"
         self.num_update_steps_per_epoch = math.ceil(
             len(train_dataloader) / self.gradient_accumulation_steps
         )
-        if self.max_steps == -1:
-            self.max_steps = self.max_epochs * self.num_update_steps_per_epoch
-        if self.max_epochs == -1:
-            self.max_epochs = self.max_steps // self.num_update_steps_per_epoch
+        # if self.num_train_steps == -1:
+        #     self.num_train_steps = self.num_train_epochs * self.num_update_steps_per_epoch
+        # if self.num_train_epochs == -1:
+        #     self.num_train_epochs = self.num_train_steps // self.num_update_steps_per_epoch
 
         # init model, dataloader, optimizer, scheduler
         (
@@ -101,7 +101,7 @@ class Trainer:
         return self.logger.info(msg, main_process_only=True)
 
     def is_stop(self):
-        return self.step >= self.max_steps
+        return self.step >= self.num_train_steps
 
     def resume(self):
         # Potentially load in the weights and states from a previous save
@@ -147,7 +147,7 @@ class Trainer:
         running_loss = 0
         start_time = time()
 
-        for epoch in range(self.start_epoch, self.max_epochs):
+        for epoch in range(self.start_epoch, self.num_train_epochs):
             if self.is_stop():
                 break
 

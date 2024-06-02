@@ -17,9 +17,10 @@
 - https://github.com/huggingface/pytorch-image-models
 - https://github.com/thuanz123/enhancing-transformers
 - https://github.com/huggingface/transformers/blob/main/src/transformers/optimization.py
+- https://discuss.pytorch.org/t/gradient-accumulation-and-scheduler/69077
 
 # Ack
 
-- scheduler is copy from `timm`
+- scheduler is copy from `transformers`
 - trainer is adapt from [here](https://github.com/huggingface/transformers/blob/main/examples/pytorch/language-modeling/run_mlm_no_trainer.py).
 - dataset code is copy from [maskgit](https://github.com/valeoai/Maskgit-pytorch)

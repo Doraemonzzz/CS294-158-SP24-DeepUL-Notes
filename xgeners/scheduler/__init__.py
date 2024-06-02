@@ -20,7 +20,7 @@ def get_lr_scheduler(
 ):
     lr_scheduler_name = lr_scheduler_args.lr_scheduler_name
     num_warmup_steps = lr_scheduler_args.num_warmup_steps
-    num_training_steps = lr_scheduler_args.num_training_steps
+    num_training_steps = lr_scheduler_args.num_train_steps
     schedule_func = LR_SCHEDULER_DICT[lr_scheduler_name]
 
     if lr_scheduler_name == "constant":

@@ -13,6 +13,7 @@ from xgeners.utils import (
     get_lr_scheduler,
     get_model,
     get_optimizer,
+    preprocess_max_epochs_and_steps,
 )
 
 
@@ -76,8 +77,9 @@ class OptimizerArguments:
 @dataclass
 class LrSchedulerArguments:
     lr_scheduler_name: str = "cosine"
+    num_train_epochs: int = 300
     num_warmup_steps: int = 0
-    num_training_steps: int = 100
+    num_train_steps: int = -1
 
 
 @dataclass
@@ -92,9 +94,9 @@ class DataArguments:
 
 @dataclass
 class TrainingArguments:
-    # steps / epochs
-    max_steps: int = -1
-    max_epochs: int = -1
+    # # steps / epochs
+    # max_steps: int = -1
+    # max_epochs: int = -1
     # trainer params
     log_intervals: int = 100
     gradient_accumulation_steps: int = 1
@@ -145,11 +147,13 @@ def main():
     ) = get_args()
 
     model = get_model(model_args)
-    print(model)
     loss_fn, loss_fn_kwargs = get_loss_fn(loss_args)
     optimizer = get_optimizer(opt_args, model)
-    lr_scheduler = get_lr_scheduler(lr_scheduler_args, optimizer)
     train_dataloader, eval_dataloader = get_dataloader(data_args)
+    lr_scheduler_args = preprocess_max_epochs_and_steps(
+        lr_scheduler_args, train_dataloader, train_args.gradient_accumulation_steps
+    )
+    lr_scheduler = get_lr_scheduler(lr_scheduler_args, optimizer)
 
     trainer = Trainer(
         model=model,
@@ -158,8 +162,8 @@ def main():
         lr_scheduler=lr_scheduler,
         train_dataloader=train_dataloader,
         eval_dataloader=eval_dataloader,
-        max_steps=train_args.max_steps,
-        max_epochs=train_args.max_epochs,
+        num_train_steps=lr_scheduler_args.num_train_steps,
+        num_train_epochs=lr_scheduler_args.num_train_epochs,
         log_intervals=train_args.log_intervals,
         gradient_accumulation_steps=train_args.gradient_accumulation_steps,
         with_tracking=train_args.with_tracking,
