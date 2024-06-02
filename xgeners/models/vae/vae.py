@@ -103,7 +103,6 @@ class VanillaVAE(nn.Module):
         log_var_token = x[:, 1:2]
         mu = self.mu_proj(mu_token)
         log_var = self.log_var_proj(log_var_token)
-        print(mu.shape, log_var.shape)
         return [mu, log_var]
 
     def decode(self, x):
@@ -136,7 +135,6 @@ class VanillaVAE(nn.Module):
         mu, log_var = self.encode(input)
         z = self.reparameterize(mu, log_var)
         output = self.decode(z)
-        print(output.shape)
         output_dict = {"output": output, "mu": mu, "log_var": log_var}
         return output_dict
 

@@ -229,7 +229,7 @@ class Trainer:
             losses = []
             for step, batch in enumerate(self.eval_dataloader):
                 with torch.no_grad():
-                    outputs = model(**batch)
+                    outputs = self.model(**batch)
                     loss = self.loss_fn(**batch, **outputs, **self.loss_fn_kwargs)
                     losses.append(self.accelerator.gather_for_metrics(loss))
 

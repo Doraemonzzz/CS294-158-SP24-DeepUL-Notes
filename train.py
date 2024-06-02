@@ -73,6 +73,8 @@ class OptimizerArguments:
 @dataclass
 class LrSchedulerArguments:
     lr_scheduler_name: str = "cosine"
+    num_warmup_steps: int = 0
+    num_training_steps: int = 100
 
 
 @dataclass

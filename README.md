@@ -16,6 +16,7 @@
 - https://github.com/huggingface/transformers/blob/main/src/transformers/training_args.py
 - https://github.com/huggingface/pytorch-image-models
 - https://github.com/thuanz123/enhancing-transformers
+- https://github.com/huggingface/transformers/blob/main/src/transformers/optimization.py
 
 # Ack
 

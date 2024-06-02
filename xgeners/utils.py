@@ -9,15 +9,12 @@ from torchvision.datasets.cifar import CIFAR10
 from torchvision.datasets.mnist import MNIST
 from torchvision.datasets.stl10 import STL10
 
-from .loss import vae_loss
-from .models import VanillaVAE
-from .scheduler import create_scheduler
+from .loss import LOSS_FN_DICT
+from .models import MODEL_DICT
+from .scheduler import LR_SCHEDULER_DICT
 
 logger = logging.getLogger(__name__)
 
-MODEL_DICT = {"vae": VanillaVAE}
-
-LOSS_FN_DICT = {"vae": vae_loss}
 
 OPTIM_DICT = {"adamw": optim.AdamW, "adam": optim.Adam}
 
@@ -76,8 +73,46 @@ def get_optimizer(opt_args, model):
     return optimizer
 
 
-def get_lr_scheduler(lr_scheduler_args, model):
-    return create_scheduler(lr_scheduler_args, model)
+def get_lr_scheduler(
+    lr_scheduler_args,
+    optimizer,
+):
+    lr_scheduler_name = lr_scheduler_args.lr_scheduler_name
+    num_warmup_steps = lr_scheduler_args.num_warmup_steps
+    num_training_steps = lr_scheduler_args.num_training_steps
+    schedule_func = LR_SCHEDULER_DICT[lr_scheduler_name]
+
+    if lr_scheduler_name == "constant":
+        return schedule_func(optimizer)
+
+    # All other schedulers require `num_warmup_steps`
+    if num_warmup_steps is None:
+        raise ValueError(
+            f"{lr_scheduler_name} requires `num_warmup_steps`, please provide that argument."
+        )
+
+    if lr_scheduler_name == "constant_with_warmup":
+        return schedule_func(optimizer, num_warmup_steps=num_warmup_steps)
+
+    if lr_scheduler_name == "inverse_sqrt":
+        return schedule_func(optimizer, num_warmup_steps=num_warmup_steps)
+
+    if lr_scheduler_name == "warmup_stable_decay":
+        return schedule_func(
+            optimizer, num_warmup_steps=num_warmup_steps, **scheduler_specific_kwargs
+        )
+
+    # All other schedulers require `num_training_steps`
+    if num_training_steps is None:
+        raise ValueError(
+            f"{lr_scheduler_name} requires `num_training_steps`, please provide that argument."
+        )
+
+    return schedule_func(
+        optimizer,
+        num_warmup_steps=num_warmup_steps,
+        num_training_steps=num_training_steps,
+    )
 
 
 def get_collate_fn(data_args):
