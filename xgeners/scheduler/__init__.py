@@ -12,3 +12,45 @@ LR_SCHEDULER_DICT = {
     "cosine_with_min_lr": get_cosine_with_min_lr_schedule_with_warmup,
     "warmup_stable_decay": get_wsd_schedule,
 }
+
+
+def get_lr_scheduler(
+    lr_scheduler_args,
+    optimizer,
+):
+    lr_scheduler_name = lr_scheduler_args.lr_scheduler_name
+    num_warmup_steps = lr_scheduler_args.num_warmup_steps
+    num_training_steps = lr_scheduler_args.num_training_steps
+    schedule_func = LR_SCHEDULER_DICT[lr_scheduler_name]
+
+    if lr_scheduler_name == "constant":
+        return schedule_func(optimizer)
+
+    # All other schedulers require `num_warmup_steps`
+    if num_warmup_steps is None:
+        raise ValueError(
+            f"{lr_scheduler_name} requires `num_warmup_steps`, please provide that argument."
+        )
+
+    if lr_scheduler_name == "constant_with_warmup":
+        return schedule_func(optimizer, num_warmup_steps=num_warmup_steps)
+
+    if lr_scheduler_name == "inverse_sqrt":
+        return schedule_func(optimizer, num_warmup_steps=num_warmup_steps)
+
+    if lr_scheduler_name == "warmup_stable_decay":
+        return schedule_func(
+            optimizer, num_warmup_steps=num_warmup_steps, **scheduler_specific_kwargs
+        )
+
+    # All other schedulers require `num_training_steps`
+    if num_training_steps is None:
+        raise ValueError(
+            f"{lr_scheduler_name} requires `num_training_steps`, please provide that argument."
+        )
+
+    return schedule_func(
+        optimizer,
+        num_warmup_steps=num_warmup_steps,
+        num_training_steps=num_training_steps,
+    )

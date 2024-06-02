@@ -18,12 +18,15 @@ from xgeners.utils import (
 
 @dataclass
 class ModelArguments:
-    model_name: str = "vae"
+    model_name: str = "ae"
     # patch embedding
     image_size: int = 224
     patch_size: int = 14
     channels: int = 3
     flatten: bool = True
+    # class embedding
+    num_class: int = 1000
+    use_class_label: bool = False
     # model params
     latent_dim: int = 192
     embed_dim: int = 192
@@ -37,7 +40,7 @@ class ModelArguments:
     act_fun: str = "swish"
     use_lightnet: bool = False
     use_lrpe: bool = False
-
+    pe_name: str = "sincos_2d"
     # encoder
     num_encoder_layers: int = 12
     # decoder
@@ -46,7 +49,7 @@ class ModelArguments:
 
 @dataclass
 class LossArguments:
-    loss_fn_name: str = "vae"
+    loss_fn_name: str = "ae"
     kl_weight: float = 0.00025
 
 

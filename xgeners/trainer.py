@@ -231,11 +231,13 @@ class Trainer:
                 with torch.no_grad():
                     outputs = self.model(**batch)
                     loss = self.loss_fn(**batch, **outputs, **self.loss_fn_kwargs)
+                    if len(loss.shape) == 0:
+                        loss.unsqueeze_(0)
                     losses.append(self.accelerator.gather_for_metrics(loss))
 
             losses = torch.cat(losses).mean().item()
+            self.info(f"Epoch: {epoch}, Eval Loss: {losses:.4f}")
             if self.with_tracking:
-                self.info(f"Epoch: {epoch}, Eval Loss: {losses:.4f}")
                 self.accelerate.log(
                     {
                         "eval_loss": losses,

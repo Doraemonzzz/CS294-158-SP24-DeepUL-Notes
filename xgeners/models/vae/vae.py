@@ -131,8 +131,8 @@ class VanillaVAE(nn.Module):
         eps = torch.randn_like(std)
         return eps * std + mu
 
-    def forward(self, input, **kwargs):
-        mu, log_var = self.encode(input)
+    def forward(self, image, **kwargs):
+        mu, log_var = self.encode(image)
         z = self.reparameterize(mu, log_var)
         output = self.decode(z)
         output_dict = {"output": output, "mu": mu, "log_var": log_var}

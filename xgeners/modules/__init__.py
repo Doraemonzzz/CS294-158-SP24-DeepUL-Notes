@@ -1,5 +1,6 @@
 from .channel_mixer import *
 from .drop import *
+from .embed import *
 from .layers import *
 from .norm import *
 from .patch_embed import *
