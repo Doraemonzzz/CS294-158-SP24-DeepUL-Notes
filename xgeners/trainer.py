@@ -1,6 +1,5 @@
 # ref https://github.com/EugenHotaj/pytorch-generative/blob/master/pytorch_generative/trainer.py
 # ref https://github.com/lucidrains/magvit2-pytorch/blob/main/magvit2_pytorch/trainer.py
-"""Utilities to train PyTorch models with less boilerplate."""
 
 
 import math
@@ -10,6 +9,8 @@ from time import time
 import torch
 from accelerate import Accelerator
 from accelerate.logging import get_logger
+from torch.nn.parallel import DistributedDataParallel
+from torchvision.utils import save_image
 
 
 class Trainer:
@@ -67,6 +68,7 @@ class Trainer:
         )
 
         # init model, dataloader, optimizer, scheduler
+        self.info(model)
         (
             self.model,
             self.train_dataloader,
@@ -272,3 +274,17 @@ class Trainer:
 
         if self.with_tracking:
             self.accelerator.end_training()
+
+    def sample(self, num_samples):
+        self.resume()
+        self.model.eval()
+        model = self.model
+        if isinstance(model, DistributedDataParallel):
+            model = model.module
+
+        samples_list = []
+        with torch.no_grad():
+            samples = model.sample(num_samples // self.accelerator.num_processes)
+            samples_list = self.accelerator.gather_for_metrics(samples)
+            if self.accelerator.is_main_process:
+                save_image(samples_list.cpu(), "test.png")

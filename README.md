@@ -4,6 +4,9 @@
 # Log
 - [x] MADE init version
 
+# Todo
+- Add number of model params.
+- Fix loss
 
 # Reference
 

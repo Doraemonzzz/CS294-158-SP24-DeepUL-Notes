@@ -1,3 +1,4 @@
+import torch
 from torch import nn
 
 from xgeners.models import AE
@@ -86,6 +87,9 @@ class AutoEncoder(AE):
             pe_name=pe_name,
         )
 
+        # others
+        self.embed_dim = embed_dim
+
     def encode(self, x, extra_tokens):
         x_encode = self.encoder_proj(self.encoder(x, extra_tokens))
         return x_encode
@@ -108,4 +112,19 @@ class AutoEncoder(AE):
         return output_dict
 
     def sample(self, num_samples):
-        return None
+        n = self.encoder.patch_embed.num_h_patch * self.encoder.patch_embed.num_w_patch
+        noise = torch.randn(
+            (num_samples, n, self.embed_dim), device=torch.cuda.current_device()
+        )
+        # samples = F.sigmoid(self.decode(noise, None))
+        logits = self.decode(noise, None)
+        from torch import distributions
+
+        samples = distributions.Bernoulli(logits=logits).sample()
+
+        # distributions.Bernoulli(logits=logits).sample()
+        # print(samples)
+        # samples = samples.argmax(dim=-1)
+        # print(samples)
+
+        return samples

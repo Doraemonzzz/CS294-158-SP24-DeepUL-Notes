@@ -64,7 +64,7 @@ class LossArguments:
 class OptimizerArguments:
     optimizer_name: str = "adamw"
     lr: float = field(
-        default=5e-5, metadata={"help": "The initial learning rate for Optimizer."}
+        default=3e-4, metadata={"help": "The initial learning rate for Optimizer."}
     )
     weight_decay: float = field(
         default=0.0, metadata={"help": "Weight decay for Optimizer if we apply some."}
@@ -101,6 +101,8 @@ class DataArguments:
 
 @dataclass
 class TrainingArguments:
+    train: bool = True
+    num_samples: int = 10
     # trainer params
     log_intervals: int = 100
     gradient_accumulation_steps: int = 1
@@ -189,7 +191,10 @@ def main():
         batch_size=data_args.train_batch_size,
     )
 
-    trainer.train()
+    if train_args.train:
+        trainer.train()
+    else:
+        trainer.sample(train_args.num_samples)
 
 
 if __name__ == "__main__":

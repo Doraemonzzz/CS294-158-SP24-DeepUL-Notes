@@ -1,6 +1,11 @@
-from .loss import ae_loss, vae_loss
+from .loss import ae_loss, binary_ae_loss, binary_vae_loss, vae_loss
 
-LOSS_FN_DICT = {"vae": vae_loss, "ae": ae_loss}
+LOSS_FN_DICT = {
+    "vae": vae_loss,
+    "binary_vae_loss": binary_vae_loss,
+    "ae": ae_loss,
+    "binary_ae": binary_ae_loss,
+}
 
 
 def get_loss_fn(loss_args):
