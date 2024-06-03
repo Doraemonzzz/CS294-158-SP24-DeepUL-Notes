@@ -1,7 +1,9 @@
 # copy from https://github.com/EugenHotaj/pytorch-generative/blob/master/train.py
 """Main training script for models."""
 
+import logging
 from dataclasses import dataclass, field
+from pprint import pformat
 from typing import Optional
 
 from simple_parsing import ArgumentParser
@@ -14,6 +16,10 @@ from xgeners.utils import (
     get_model,
     get_optimizer,
     preprocess_max_epochs_and_steps,
+)
+
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
 
@@ -90,13 +96,11 @@ class DataArguments:
     download: bool = False
     train_batch_size: int = 1
     eval_batch_size: int = 1
+    num_examples: int = -1
 
 
 @dataclass
 class TrainingArguments:
-    # # steps / epochs
-    # max_steps: int = -1
-    # max_epochs: int = -1
     # trainer params
     log_intervals: int = 100
     gradient_accumulation_steps: int = 1
@@ -104,7 +108,7 @@ class TrainingArguments:
     report_to: str = "wandb"
     output_dir: str = "."
     checkpointing_steps: Optional[str] = None
-    resume_from_checkpoint: Optional[str] = None
+    resume_from_checkpoint: Optional[bool] = False  # Optional[Union[str, bool]] = None
     # warmup
     warmup_ratio: float = field(
         default=0.0,
@@ -155,6 +159,15 @@ def main():
     )
     lr_scheduler = get_lr_scheduler(lr_scheduler_args, optimizer)
 
+    logging.info("Model args")
+    logging.info(pformat(vars(model_args)))
+    logging.info("Loss args")
+    logging.info(pformat(vars(loss_args)))
+    logging.info("Data args")
+    logging.info(pformat(vars(data_args)))
+    logging.info("Lr scheduler args")
+    logging.info(pformat(vars(lr_scheduler_args)))
+
     trainer = Trainer(
         model=model,
         loss_fn=loss_fn,
@@ -172,6 +185,8 @@ def main():
         checkpointing_steps=train_args.checkpointing_steps,
         resume_from_checkpoint=train_args.resume_from_checkpoint,
         loss_fn_kwargs=loss_fn_kwargs,
+        num_examples=data_args.num_examples,
+        batch_size=data_args.train_batch_size,
     )
 
     trainer.train()

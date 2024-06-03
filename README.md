@@ -18,6 +18,7 @@
 - https://github.com/thuanz123/enhancing-transformers
 - https://github.com/huggingface/transformers/blob/main/src/transformers/optimization.py
 - https://discuss.pytorch.org/t/gradient-accumulation-and-scheduler/69077
+- https://github.com/huggingface/transformers/blob/main/examples/pytorch/token-classification/run_ner_no_trainer.py
 
 # Ack
 
