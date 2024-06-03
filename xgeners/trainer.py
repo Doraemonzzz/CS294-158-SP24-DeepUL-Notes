@@ -110,42 +110,29 @@ class Trainer:
 
     def resume(self):
         # Potentially load in the weights and states from a previous save
-        self.info(type(self.resume_from_checkpoint))
         if self.resume_from_checkpoint:
-            # Get the most recent checkpoint
-            dirs = [
-                os.path.join(self.output_dir, f.name)
-                for f in os.scandir(self.output_dir)
-                if f.is_dir()
-            ]
-            dirs.sort(key=os.path.getctime)
-            path = dirs[
-                -1
-            ]  # Sorts folders by date modified, most recent checkpoint is the last
-            checkpoint_path = path
-            path = os.path.basename(checkpoint_path)
+            if self.resume_from_checkpoint == "True":
+                # Get the most recent checkpoint
+                dirs = [
+                    os.path.join(self.output_dir, f.name)
+                    for f in os.scandir(self.output_dir)
+                    if f.is_dir()
+                ]
+                dirs.sort(key=os.path.getctime)
+                path = dirs[
+                    -1
+                ]  # Sorts folders by date modified, most recent checkpoint is the last
+                checkpoint_path = path
+                path = os.path.basename(checkpoint_path)
+            else:
+                checkpoint_path = self.resume_from_checkpoint
+                path = os.path.basename(self.resume_from_checkpoint)
 
-            # if (
-            #     self.resume_from_checkpoint is not None
-            #     or self.resume_from_checkpoint != ""
-            # ):
-            #     checkpoint_path = self.resume_from_checkpoint
-            #     path = os.path.basename(self.resume_from_checkpoint)
-            # else:
-            #     # Get the most recent checkpoint
-            #     dirs = [f.name for f in os.scandir(self.output_dir) if f.is_dir()]
-            #     dirs.sort(key=os.path.getctime)
-            #     path = dirs[
-            #         -1
-            #     ]  # Sorts folders by date modified, most recent checkpoint is the last
-            #     checkpoint_path = path
-            #     path = os.path.basename(checkpoint_path)
-
-            self.accelerator.print(f"Resumed from checkpoint: {checkpoint_path}")
+            self.info(f"Resumed from checkpoint: {checkpoint_path}")
             self.accelerator.load_state(checkpoint_path)
+
             # Extract `epoch_{i}` or `step_{i}`
             training_difference = os.path.splitext(path)[0]
-
             if "epoch" in training_difference:
                 self.start_epoch = int(training_difference.replace("epoch_", "")) + 1
                 self.resume_step = None

@@ -69,5 +69,5 @@ class ReversePatchEmbed(nn.Module):
         if self.flatten:
             x = rearrange(x, "b (h w) c -> b c h w", h=self.num_h_patch)
 
-        y = self.reverse_patch_embedding(x)
+        y = self.reverse_patch_embedding(x.contiguous())
         return y

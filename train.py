@@ -108,7 +108,7 @@ class TrainingArguments:
     report_to: str = "wandb"
     output_dir: str = "."
     checkpointing_steps: Optional[str] = None
-    resume_from_checkpoint: Optional[bool] = False  # Optional[Union[str, bool]] = None
+    resume_from_checkpoint: Optional[str] = False  # Optional[Union[str, bool]] = None
     # warmup
     warmup_ratio: float = field(
         default=0.0,
