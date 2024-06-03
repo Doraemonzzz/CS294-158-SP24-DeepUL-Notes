@@ -162,9 +162,6 @@ class Trainer:
 
     def train(self):
         self.resume()
-        # Only show the progress bar once on each machine.
-        # progress_bar = tqdm(range(self.num_train_steps), disable=not self.accelerator.is_local_main_process)
-        # progress_bar.update(self.step)
 
         self.info("***** Running training *****")
         self.info(f"  Num examples = {self.num_examples}")
@@ -210,7 +207,6 @@ class Trainer:
 
                 # Checks if the accelerator has performed an optimization step behind the scenes
                 if self.accelerator.sync_gradients:
-                    # progress_bar.update(1)
                     self.step += 1
 
                     if self.step % self.log_intervals == 0:
@@ -218,16 +214,16 @@ class Trainer:
                         torch.cuda.synchronize()
                         end_time = time()
                         steps_per_sec = self.log_intervals / (end_time - start_time)
-                        # running_loss_tensor = torch.tensor(running_loss / self.gradient_accumulation_steps / self.log_intervals)
-                        # dist.all_reduce(running_loss_tensor, op=dist.ReduceOp.SUM)
-                        # running_loss_avg = running_loss_tensor.item() / self.accelerator.num_processes
 
                         running_loss_tensor = torch.tensor(
                             running_loss
                             / self.gradient_accumulation_steps
-                            / self.log_intervals
+                            / self.log_intervals,
+                            device=torch.cuda.current_device(),
                         )
-                        self.accelerator.gather_for_metrics(running_loss_tensor)
+                        running_loss_tensor = self.accelerator.gather_for_metrics(
+                            running_loss_tensor
+                        )
                         running_loss_avg = torch.mean(running_loss_tensor).item()
 
                         self.info(

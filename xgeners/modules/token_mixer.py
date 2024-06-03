@@ -36,7 +36,6 @@ class SoftmaxAttention(nn.Module):
 
     def forward(self, x):
         qkv = self.qkv_proj(x).chunk(3, dim=-1)
-
         q, k, v = map(
             lambda t: rearrange(t, "b n (h d) -> b h n d", h=self.num_heads), qkv
         )
