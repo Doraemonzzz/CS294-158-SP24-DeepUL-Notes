@@ -2,7 +2,8 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from xgeners.modules import AE, Decoder, Encoder
+from xgeners.models import AE
+from xgeners.modules import Decoder, Encoder
 
 
 class VanillaVAE(AE):
