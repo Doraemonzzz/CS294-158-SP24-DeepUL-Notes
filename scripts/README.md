@@ -11,6 +11,8 @@ are downloaded to the corresponding directories.
 </details>
 
 <details><summary>CelebA 64</summary>
+
+Following [this link](https://stackoverflow.com/questions/70896841/error-downloading-celeba-dataset-using-torchvision) to download CelebA images  to the path `$DATA_DIR/celeba_org`, as there are some bugs when using torchvision to download the data.
 Run the following commands to download the CelebA images and store them in an LMDB dataset:
 
 ```shell script

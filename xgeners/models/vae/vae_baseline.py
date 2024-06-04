@@ -18,8 +18,8 @@ class VaeBaseline(nn.Module):
         h1 = F.relu(self.fc1(x))
         return self.fc21(h1), self.fc22(h1)
 
-    def reparameterize(self, mu, logvar):
-        std = torch.exp(0.5 * logvar)
+    def reparameterize(self, mu, log_var):
+        std = torch.exp(0.5 * log_var)
         eps = torch.randn_like(std)
         return mu + eps * std
 
@@ -30,12 +30,12 @@ class VaeBaseline(nn.Module):
     def forward(self, image, **kwargs):
         b, c, h, w = image.shape
         image = rearrange(image, "b c h w -> b (c h w)")
-        mu, logvar = self.encode(image)
-        z = self.reparameterize(mu, logvar)
+        mu, log_var = self.encode(image)
+        z = self.reparameterize(mu, log_var)
         output = self.decode(z)
         output = rearrange(output, "b (c h w) -> b c h w", h=h, w=w)
 
-        output_dict = {"output": output, "mu": mu, "log_var": logvar}
+        output_dict = {"output": output, "mu": mu, "log_var": log_var}
         return output_dict
 
     def sample(self, num_samples):

@@ -27,7 +27,7 @@ class PatchEmbed(nn.Module):
         self.flatten = flatten
         self.num_h_patch = image_height // patch_height
         self.num_w_patch = image_width // patch_width
-        self.num_tokens = self.num_h_patch * self.num_w_patch
+        self.num_patch = self.num_h_patch * self.num_w_patch
 
     def forward(self, x):
         y = self.to_patch_embedding(x)
@@ -63,7 +63,7 @@ class ReversePatchEmbed(nn.Module):
         self.flatten = flatten
         self.num_h_patch = image_height // patch_height
         self.num_w_patch = image_width // patch_width
-        self.num_tokens = self.num_h_patch * self.num_w_patch
+        self.num_patch = self.num_h_patch * self.num_w_patch
 
     def forward(self, x):
         if self.flatten:
