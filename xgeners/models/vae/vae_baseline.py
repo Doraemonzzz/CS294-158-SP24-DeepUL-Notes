@@ -25,12 +25,12 @@ class VaeBaseline(nn.Module):
 
     def decode(self, z):
         h3 = F.relu(self.fc3(z))
-        return torch.sigmoid(self.fc4(h3))
+        return self.fc4(h3)
 
     def forward(self, image, **kwargs):
         b, c, h, w = image.shape
         image = rearrange(image, "b c h w -> b (c h w)")
-        mu, logvar = self.encode(image.view(-1, 784))
+        mu, logvar = self.encode(image)
         z = self.reparameterize(mu, logvar)
         output = self.decode(z)
         output = rearrange(output, "b (c h w) -> b c h w", h=h, w=w)
@@ -40,7 +40,6 @@ class VaeBaseline(nn.Module):
 
     def sample(self, num_samples):
         noise = torch.randn((num_samples, 20), device=torch.cuda.current_device())
-        # samples = F.sigmoid(self.decode(noise, None))
-        samples = self.decode(noise).view(-1, 1, 28, 28)
+        samples = F.sigmoid(self.decode(noise).view(-1, 1, 28, 28))
 
         return samples

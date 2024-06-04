@@ -23,6 +23,12 @@
 - https://discuss.pytorch.org/t/gradient-accumulation-and-scheduler/69077
 - https://github.com/huggingface/transformers/blob/main/examples/pytorch/token-classification/run_ner_no_trainer.py
 
+
+VAE reference:
+- https://github.com/Jackson-Kang/Pytorch-VAE-tutorial
+- https://github.com/SingleZombie/DL-Demos/blob/master/dldemos/VAE/
+- https://github.com/pytorch/examples/tree/main/vae
+
 # Ack
 
 - scheduler is copy from `transformers`

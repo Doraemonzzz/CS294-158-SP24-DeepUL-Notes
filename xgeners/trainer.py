@@ -163,6 +163,7 @@ class Trainer:
         self.info(f"  Total optimization steps = {self.num_train_steps}")
 
         running_loss = 0
+        batches = 0
         start_time = time()
 
         for epoch in range(self.start_epoch, self.num_train_epochs):
@@ -189,6 +190,7 @@ class Trainer:
                     outputs = self.model(**batch)
                     loss = self.loss_fn(**batch, **outputs, **self.loss_fn_kwargs)
                     running_loss += loss.item()
+                    batches += batch["image"].shape[0]
                     self.accelerator.backward(loss)
                     self.optimizer.step()
                     self.lr_scheduler.step()
@@ -203,7 +205,7 @@ class Trainer:
                         torch.cuda.synchronize()
                         end_time = time()
                         steps_per_sec = self.log_intervals / (end_time - start_time)
-
+                        # self.info(batches)
                         running_loss_tensor = torch.tensor(
                             running_loss
                             / self.gradient_accumulation_steps
@@ -229,6 +231,7 @@ class Trainer:
                             )
 
                         running_loss = 0
+                        batches = 0
 
                         start_time = time()
 

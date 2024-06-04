@@ -1,8 +1,5 @@
 import torch
 from torch import nn
-from torch.nn import functional as F
-
-from xgeners.modules import Blocks, PatchEmbed, ReversePatchEmbed
 
 
 class VanillaVAE(nn.Module):
@@ -27,6 +24,7 @@ class VanillaVAE(nn.Module):
         act_fun = config.act_fun
         use_lightnet = config.use_lightnet
         use_lrpe = config.use_lrpe
+        pe_name = config.pe_name
 
         # encoder
         num_encoder_layers = config.num_encoder_layers
@@ -36,15 +34,11 @@ class VanillaVAE(nn.Module):
         ##### get params end
 
         # Encoder part
-        self.patch_embed = PatchEmbed(
+        self.encoder = Encoder(
             image_size=image_size,
             patch_size=patch_size,
-            embed_dim=embed_dim,
             channels=channels,
             flatten=flatten,
-            bias=bias,
-        )
-        self.encoder = Blocks(
             num_layers=num_encoder_layers,
             embed_dim=embed_dim,
             num_heads=num_heads,
@@ -57,7 +51,10 @@ class VanillaVAE(nn.Module):
             use_lightnet=use_lightnet,
             bias=bias,
             use_lrpe=use_lrpe,
+            pe_name=pe_name,
         )
+        self.encoder_proj = nn.Linear(embed_dim, latent_dim, bias=bias)
+
         self.mu_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
         self.log_var_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
         self.pos_embed = None
@@ -66,7 +63,11 @@ class VanillaVAE(nn.Module):
 
         # Decoder part
         self.decoder_proj = nn.Linear(latent_dim, embed_dim, bias=bias)
-        self.decoder = Blocks(
+        self.decoder = Decoder(
+            image_size=image_size,
+            patch_size=patch_size,
+            channels=channels,
+            flatten=flatten,
             num_layers=num_decoder_layers,
             embed_dim=embed_dim,
             num_heads=num_heads,
@@ -79,15 +80,9 @@ class VanillaVAE(nn.Module):
             use_lightnet=use_lightnet,
             bias=bias,
             use_lrpe=use_lrpe,
+            pe_name=pe_name,
         )
-        self.reverse_patch_embed = ReversePatchEmbed(
-            image_size=image_size,
-            patch_size=patch_size,
-            embed_dim=embed_dim,
-            channels=channels,
-            flatten=flatten,
-            bias=bias,
-        )
+
         self.decoder_token = nn.Parameter(
             torch.zeros(1, self.patch_embed.num_tokens, embed_dim)
         )
@@ -137,33 +132,6 @@ class VanillaVAE(nn.Module):
         output = self.decode(z)
         output_dict = {"output": output, "mu": mu, "log_var": log_var}
         return output_dict
-
-    def loss_function(self, *args, **kwargs) -> dict:
-        """
-        Computes the VAE loss function.
-        KL(N(\mu, \sigma), N(0, 1)) = \log \frac{1}{\sigma} + \frac{\sigma^2 + \mu^2}{2} - \frac{1}{2}
-        :param args:
-        :param kwargs:
-        :return:
-        """
-        recons = args[0]
-        input = args[1]
-        mu = args[2]
-        log_var = args[3]
-
-        kld_weight = kwargs["M_N"]  # Account for the minibatch samples from the dataset
-        recons_loss = F.mse_loss(recons, input)
-
-        kld_loss = torch.mean(
-            -0.5 * torch.sum(1 + log_var - mu**2 - log_var.exp(), dim=1), dim=0
-        )
-
-        loss = recons_loss + kld_weight * kld_loss
-        return {
-            "loss": loss,
-            "Reconstruction_Loss": recons_loss.detach(),
-            "KLD": -kld_loss.detach(),
-        }
 
     def sample(self, num_samples: int, current_device: int, **kwargs):
         """

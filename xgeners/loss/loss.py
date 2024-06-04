@@ -14,10 +14,11 @@ def vae_loss(image, output, mu, log_var, **kwargs):
 
 
 def binary_vae_loss(image, output, mu, log_var, **kwargs):
-    recons_loss = F.binary_cross_entropy(output, image, reduction="sum")
+    b = image.shape[0]
+    recons_loss = F.binary_cross_entropy_with_logits(output, image, reduction="sum")
     kl_loss = -0.5 * torch.sum(1 + log_var - mu**2 - log_var.exp())
     kl_weight = kwargs["kl_weight"]
-    loss = recons_loss + kl_weight * kl_loss
+    loss = (recons_loss + kl_weight * kl_loss) / b
     return loss
 
 
